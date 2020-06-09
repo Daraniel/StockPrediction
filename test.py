@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from models.SelfFeedLSTM import SelfFeedLSTM
+import os
+print(os. getcwd())
 
 plt.style.use('fivethirtyeight')
 
