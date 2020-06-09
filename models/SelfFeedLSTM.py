@@ -59,7 +59,6 @@ class SelfFeedLSTM():
 
         self.model.compile(optimizer='adam', loss='mean_squared_error')
 
-
     def train(self):
         self.model.fit(self.x_train, self.y_train, batch_size=1000, epochs=10)
 
