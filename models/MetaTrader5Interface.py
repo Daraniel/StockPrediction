@@ -49,7 +49,7 @@ def _request(symbol, order_type, volume=0.1, price=None, deviation=20):
 
 def _evaluate_symbol(symbol):
     """
-    checks if symbol is valid and adds it to watch list
+    Checks if symbol is valid and adds it to watch list
     :param symbol: symbol name
     :return: True if symbol is valid else false
     """
@@ -58,7 +58,6 @@ def _evaluate_symbol(symbol):
         UITools.popup(f"{symbol} not found")
         mt5.shutdown()
         return False
-
     return True
 
 
@@ -99,13 +98,12 @@ class MetaTrader5Interface:
 
         stock_data = pd.DataFrame(rates)
         stock_data['time'] = pd.to_datetime(stock_data['time'], unit='s')
-
         return stock_data
 
     @staticmethod
     def buy_order(symbol, volume=0.1, price=None, deviation=20):
         """
-        Order to buy a symbol
+        Send order to buy a symbol
         :param symbol: symbol name
         :param volume: volume to buy
         :param price: buy price if not set will auto calculate it
@@ -130,7 +128,7 @@ class MetaTrader5Interface:
     @staticmethod
     def sell_order(symbol, volume=0.1, price=None, deviation=20):
         """
-        Order to sell a symbol
+        Send order to sell a symbol
         :param symbol: symbol name
         :param volume: volume to sell
         :param price: sell price if not set will auto calculate it
@@ -155,7 +153,7 @@ class MetaTrader5Interface:
     @staticmethod
     def get_symbol_current_orders(symbol):
         """
-        gets orders of the symbol in the last hour
+        Gets orders of the symbol in the last hour
         :param symbol: symbol to check
         :return: selected symbol trade history
         """
@@ -167,21 +165,24 @@ class MetaTrader5Interface:
             UITools.popup(f"{symbol} is not valid! please check if its tradable")
             return
 
-        utc_from = datetime(2020, 6, 9)
+        utc_from = datetime.today()
         ticks = mt5.copy_ticks_from(symbol, utc_from, 10000, mt5.COPY_TICKS_TRADE)
 
         stock_data = pd.DataFrame(ticks)
         stock_data['time'] = pd.to_datetime(stock_data['time'], unit='s')
-
         indexes = stock_data[stock_data['bid'] == 0].index
         stock_data = stock_data.drop(indexes)
         indexes = stock_data[stock_data['ask'] == 0].index
         stock_data = stock_data.drop(indexes)
-
         return stock_data
 
     @staticmethod
     def add_to_watch_list(symbol):
+        """
+        Adds selected symbol to mql5 watchlist so user can track its changes
+        :param symbol: symbol to add
+        :return: True if transaction is succeeded and False if it failed
+        """
         if not _evaluate_symbol(symbol):
             UITools.popup(f"{symbol} is not valid! please check if its tradable")
             return False
@@ -192,5 +193,4 @@ class MetaTrader5Interface:
                 UITools.popup(f"symbol_select {symbol} failed, exit")
                 mt5.shutdown()
                 return False
-
         return True

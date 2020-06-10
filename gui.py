@@ -9,13 +9,19 @@ import matplotlib.dates as mdates
 
 
 from models.MetaTrader5Interface import MetaTrader5Interface as mt5i
-from models.UITools import UITools
 
 matplotlib.use('Qt5Agg')
 
 
 class MplCanvas(FigureCanvasQTAgg):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
+        """
+        Creates a canvas used to draw matplotlib.pyplot (or plt) plots in pyqt5 gui
+        :param parent: parent gui element which houses the plot
+        :param width: plot width
+        :param height: plot height
+        :param dpi: plot resolution
+        """
         fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
         super(MplCanvas, self).__init__(fig)
@@ -23,6 +29,11 @@ class MplCanvas(FigureCanvasQTAgg):
 
 class UI:
     def __init__(self, dialog):
+        """
+        Initializes the gui on input window had to use dialog for its name because pycharm won't let me use window
+        variable name for it because I used it in another scoop!
+        :param dialog: parent window (Gui main window)
+        """
         self.window = dialog
         self.topGraph = MplCanvas(self.window, width=5, height=4, dpi=100)
         self.topGraph.axes.plot([0, 1, 2, 3, 4], [10, 1, 20, 3, 40])
@@ -57,12 +68,21 @@ class UI:
         self.search()
 
     def search(self):
+        """
+        Searches for symbol in mql5 and adds similar symbols to gui list
+        This function activates on text change
+        """
         self.stockList.clear()
         symbols = mt5i.get_symbols(self.searchField.text())
         if symbols is not None and len(symbols) != 0:
             self.stockList.addItems(symbols)
 
     def stock_list_item_click(self, item):
+        """
+        Gets information for the selected stock from the list and draws its graphs
+        :param item: selected stock
+        """
+        # draw price history and prediction
         self.stockName.setText(str(item.text()))
         data = mt5i.get_symbol_data(item.text())
         self.topGraph.axes.cla()
@@ -71,6 +91,7 @@ class UI:
         self.topGraph.axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
         self.topGraph.draw()
 
+        # draw today's last 100 exchange bid and ask graph
         data2 = mt5i.get_symbol_current_orders(item.text())
         print(data2)
         data2 = data2.iloc[-100:]
@@ -84,13 +105,13 @@ class UI:
 
 
 if __name__ == '__main__':
+    # good old function!
     Form, Window = uic.loadUiType('ui/gui.ui')
     app = QtWidgets.QApplication([])
 
     window = Window()
     form = Form()
     form.setupUi(window)
-
     ui = UI(window)
 
     window.setFixedSize(window.size())
