@@ -1,7 +1,7 @@
 import MetaTrader5 as mt5
 import pandas as pd
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from models.UITools import UITools
 from models.CustomError import CustomError
@@ -165,16 +165,21 @@ class MetaTrader5Interface:
             UITools.popup(f"{symbol} is not valid! please check if its tradable")
             return
 
-        utc_from = datetime.today()
-        ticks = mt5.copy_ticks_from(symbol, utc_from, 10000, mt5.COPY_TICKS_TRADE)
+        time_to = datetime.now()
+        time_from = time_to - timedelta(weeks=100)
 
-        stock_data = pd.DataFrame(ticks)
-        stock_data['time'] = pd.to_datetime(stock_data['time'], unit='s')
-        indexes = stock_data[stock_data['bid'] == 0].index
-        stock_data = stock_data.drop(indexes)
-        indexes = stock_data[stock_data['ask'] == 0].index
-        stock_data = stock_data.drop(indexes)
-        return stock_data
+        deals = mt5.history_deals_get(time_from, time_to, group="*,!*EUR*,!*GBP*")
+        print(deals)
+        print(mt5.last_error())
+
+        if deals is None:
+            print("No deals with group=\"*USD*\", error code={}".format(mt5.last_error()))
+        elif len(deals) > 0:
+            stock_deals = pd.DataFrame(list(deals), columns=deals[0]._asdict().keys())
+            stock_deals['time'] = pd.to_datetime(stock_deals['time'], unit='s')
+
+            print(stock_deals)
+            return stock_deals
 
     @staticmethod
     def add_to_watch_list(symbol):

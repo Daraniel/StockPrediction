@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1091</width>
+    <width>1155</width>
     <height>776</height>
    </rect>
   </property>
@@ -17,8 +17,8 @@
    <widget class="QListWidget" name="stockList">
     <property name="geometry">
      <rect>
-      <x>810</x>
-      <y>60</y>
+      <x>880</x>
+      <y>50</y>
       <width>271</width>
       <height>651</height>
      </rect>
@@ -30,8 +30,8 @@
    <widget class="QLabel" name="label_2">
     <property name="geometry">
      <rect>
-      <x>180</x>
-      <y>410</y>
+      <x>200</x>
+      <y>400</y>
       <width>55</width>
       <height>16</height>
      </rect>
@@ -43,8 +43,8 @@
    <widget class="QLabel" name="stockName">
     <property name="geometry">
      <rect>
-      <x>370</x>
-      <y>10</y>
+      <x>440</x>
+      <y>0</y>
       <width>191</width>
       <height>21</height>
      </rect>
@@ -59,8 +59,8 @@
    <widget class="QWidget" name="bottomGraph" native="true">
     <property name="geometry">
      <rect>
-      <x>280</x>
-      <y>380</y>
+      <x>350</x>
+      <y>370</y>
       <width>521</width>
       <height>331</height>
      </rect>
@@ -69,8 +69,8 @@
    <widget class="QLineEdit" name="searchField">
     <property name="geometry">
      <rect>
-      <x>810</x>
-      <y>10</y>
+      <x>880</x>
+      <y>0</y>
       <width>271</width>
       <height>41</height>
      </rect>
@@ -88,8 +88,8 @@
    <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
-      <x>60</x>
-      <y>20</y>
+      <x>80</x>
+      <y>10</y>
       <width>141</width>
       <height>41</height>
      </rect>
@@ -104,8 +104,8 @@
    <widget class="QLabel" name="label_3">
     <property name="geometry">
      <rect>
-      <x>180</x>
-      <y>440</y>
+      <x>200</x>
+      <y>430</y>
       <width>55</width>
       <height>16</height>
      </rect>
@@ -117,28 +117,18 @@
    <widget class="QWidget" name="topGraph" native="true">
     <property name="geometry">
      <rect>
-      <x>280</x>
-      <y>40</y>
+      <x>350</x>
+      <y>30</y>
       <width>521</width>
       <height>331</height>
-     </rect>
-    </property>
-   </widget>
-   <widget class="QListWidget" name="stockList_2">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>70</y>
-      <width>256</width>
-      <height>321</height>
      </rect>
     </property>
    </widget>
    <widget class="QLineEdit" name="price">
     <property name="geometry">
      <rect>
-      <x>40</x>
-      <y>410</y>
+      <x>60</x>
+      <y>400</y>
       <width>121</width>
       <height>21</height>
      </rect>
@@ -153,8 +143,8 @@
    <widget class="QLineEdit" name="volume">
     <property name="geometry">
      <rect>
-      <x>40</x>
-      <y>440</y>
+      <x>60</x>
+      <y>430</y>
       <width>121</width>
       <height>21</height>
      </rect>
@@ -169,8 +159,8 @@
    <widget class="QPushButton" name="buyButton">
     <property name="geometry">
      <rect>
-      <x>160</x>
-      <y>470</y>
+      <x>180</x>
+      <y>460</y>
       <width>93</width>
       <height>28</height>
      </rect>
@@ -182,8 +172,8 @@
    <widget class="QPushButton" name="sellButton">
     <property name="geometry">
      <rect>
-      <x>40</x>
-      <y>470</y>
+      <x>60</x>
+      <y>460</y>
       <width>93</width>
       <height>28</height>
      </rect>
@@ -192,13 +182,23 @@
      <string>فروش</string>
     </property>
    </widget>
+   <widget class="QTableView" name="tradeHistoryTable">
+    <property name="geometry">
+     <rect>
+      <x>5</x>
+      <y>50</y>
+      <width>341</width>
+      <height>331</height>
+     </rect>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1091</width>
+     <width>1155</width>
      <height>26</height>
     </rect>
    </property>

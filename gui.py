@@ -1,12 +1,12 @@
 import matplotlib
-from PyQt5 import uic, QtWidgets
+import pandas as pd
+from PyQt5 import uic, QtWidgets, QtCore
 import sys
 
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 import matplotlib.dates as mdates
-
 
 from models.MetaTrader5Interface import MetaTrader5Interface as mt5i
 
@@ -25,6 +25,29 @@ class MplCanvas(FigureCanvasQTAgg):
         fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
         super(MplCanvas, self).__init__(fig)
+
+
+class PandasModel(QtCore.QAbstractTableModel):
+    def __init__(self, data):
+        QtCore.QAbstractTableModel.__init__(self)
+        self._data = data
+
+    def rowCount(self, parent=None):
+        return self._data.shape[0]
+
+    def columnCount(self, parent=None):
+        return self._data.shape[1]
+
+    def data(self, index, role=QtCore.Qt.DisplayRole):
+        if index.isValid():
+            if role == QtCore.Qt.DisplayRole:
+                return str(self._data.iloc[index.row(), index.column()])
+        return None
+
+    def headerData(self, col, orientation, role):
+        if orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole:
+            return self._data.columns[col]
+        return None
 
 
 class UI:
@@ -65,6 +88,8 @@ class UI:
 
         self.stockName = self.window.findChild(QtWidgets.QLabel, 'stockName')
 
+        self.tradeHistoryTable = self.window.findChild(QtWidgets.QTableView, 'tradeHistoryTable')
+
         self.search()
 
     def search(self):
@@ -93,15 +118,28 @@ class UI:
 
         # draw today's last 100 exchange bid and ask graph
         data2 = mt5i.get_symbol_current_orders(item.text())
-        print(data2)
-        data2 = data2.iloc[-100:]
-        self.bottomGraph.axes.cla()
-        self.bottomGraph.axes.plot(data2['time'], data2['bid'], label='bids')
-        self.bottomGraph.axes.plot(data2['time'], data2['ask'], color='orange', label='asks')
-        self.bottomGraph.axes.xaxis.set_major_locator(mdates.MinuteLocator(interval=15))
-        self.bottomGraph.axes.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-        self.bottomGraph.axes.legend()
-        self.bottomGraph.draw()
+        if data2 is not None:
+            data2 = data2.iloc[-100:]
+            data2 = data2.drop(columns=['time_msc', 'flags', 'volume_real'])
+
+            self.bottomGraph.axes.cla()
+            self.bottomGraph.axes.plot(data2['time'], data2['bid'], label='bids')
+            self.bottomGraph.axes.plot(data2['time'], data2['ask'], color='orange', label='asks')
+            self.bottomGraph.axes.xaxis.set_major_locator(mdates.MinuteLocator(interval=15))
+            self.bottomGraph.axes.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            self.bottomGraph.axes.legend()
+            self.bottomGraph.draw()
+
+            data2['time'] = str(data2['time'])[18:26]
+            model = PandasModel(data2)
+            self.tradeHistoryTable.setModel(model)
+
+            header = self.tradeHistoryTable.horizontalHeader()
+            header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+            header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+            header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
+            header.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
+            header.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeToContents)
 
 
 if __name__ == '__main__':
