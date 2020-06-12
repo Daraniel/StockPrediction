@@ -1,65 +1,158 @@
-import sys
 import matplotlib
-matplotlib.use('Qt5Agg')
-
-from PyQt5 import uic, QtWidgets
+import pandas as pd
+from PyQt5 import uic, QtWidgets, QtCore
+import sys
 
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+import matplotlib.dates as mdates
+
+from models.MetaTrader5Interface import MetaTrader5Interface as mt5i
+
+matplotlib.use('Qt5Agg')
+
 
 class MplCanvas(FigureCanvasQTAgg):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
+        """
+        Creates a canvas used to draw matplotlib.pyplot (or plt) plots in pyqt5 gui
+        :param parent: parent gui element which houses the plot
+        :param width: plot width
+        :param height: plot height
+        :param dpi: plot resolution
+        """
         fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
         super(MplCanvas, self).__init__(fig)
 
 
-# class MainWindow(QtWidgets.QMainWindow):
-#
-#     def __init__(self, *args, **kwargs):
-#         super(MainWindow, self).__init__(*args, **kwargs)
-#
-#         sc = MplCanvas(self, width=5, height=4, dpi=100)
-#         sc.axes.plot([0,1,2,3,4], [10,1,20,3,40])
-#
-#         # Create toolbar, passing canvas as first parament, parent (self, the MainWindow) as second.
-#         toolbar = NavigationToolbar(sc, self)
-#
-#         layout = QtWidgets.QVBoxLayout()
-#         layout.addWidget(toolbar)
-#         layout.addWidget(sc)
-#
-#         # Create a placeholder widget to hold our toolbar and canvas.
-#         widget = QtWidgets.QWidget()
-#         widget.setLayout(layout)
-#         self.setCentralWidget(widget)
-#
-#         self.show()
-#
-#
-# app = QtWidgets.QApplication(sys.argv)
-# w = MainWindow()
-# app.exec_()
+class PandasModel(QtCore.QAbstractTableModel):
+    def __init__(self, data):
+        QtCore.QAbstractTableModel.__init__(self)
+        self._data = data
+
+    def rowCount(self, parent=None):
+        return self._data.shape[0]
+
+    def columnCount(self, parent=None):
+        return self._data.shape[1]
+
+    def data(self, index, role=QtCore.Qt.DisplayRole):
+        if index.isValid():
+            if role == QtCore.Qt.DisplayRole:
+                return str(self._data.iloc[index.row(), index.column()])
+        return None
+
+    def headerData(self, col, orientation, role):
+        if orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole:
+            return self._data.columns[col]
+        return None
 
 
-Form, Window = uic.loadUiType("gui.ui")
-app = QtWidgets.QApplication([])
-window = Window()
-form = Form()
+class UI:
+    def __init__(self, dialog):
+        """
+        Initializes the gui on input window had to use dialog for its name because pycharm won't let me use window
+        variable name for it because I used it in another scoop!
+        :param dialog: parent window (Gui main window)
+        """
+        self.window = dialog
+        self.topGraph = MplCanvas(self.window, width=5, height=4, dpi=100)
+        self.topGraph.axes.plot([0, 1, 2, 3, 4], [10, 1, 20, 3, 40])
 
-sc = MplCanvas(window, width=5, height=4, dpi=100)
-sc.axes.plot([0,1,2,3,4], [10,1,20,3,40])
+        self.topToolbar = NavigationToolbar(self.topGraph, self.window)
+        self.topLayout = QtWidgets.QVBoxLayout()
+        self.topLayout.addWidget(self.topToolbar)
+        self.topLayout.addWidget(self.topGraph)
 
-# Create toolbar, passing canvas as first parament, parent (self, the MainWindow) as second.
-toolbar = NavigationToolbar(sc, window)
-layout = QtWidgets.QVBoxLayout()
-layout.addWidget(toolbar)
-layout.addWidget(sc)
-form.setupUi(window)
+        self.topWidget = self.window.findChild(QtWidgets.QWidget, 'topGraph')
+        self.topWidget.setLayout(self.topLayout)
 
-widget = window.findChild(QtWidgets.QWidget, "widget")
-widget.setLayout(layout)
+        self.bottomGraph = MplCanvas(self.window, width=5, height=4, dpi=100)
+        self.bottomGraph.axes.plot([0, 1, 2, 3, 4], [10, 1, 20, 3, 40])
 
-window.show()
-app.exec_()
+        self.bottomToolbar = NavigationToolbar(self.bottomGraph, self.window)
+        self.bottomLayout = QtWidgets.QVBoxLayout()
+        self.bottomLayout.addWidget(self.bottomToolbar)
+        self.bottomLayout.addWidget(self.bottomGraph)
+
+        self.bottomWidget = self.window.findChild(QtWidgets.QWidget, 'bottomGraph')
+        self.bottomWidget.setLayout(self.bottomLayout)
+
+        self.searchField = self.window.findChild(QtWidgets.QLineEdit, 'searchField')
+        self.searchField.textChanged.connect(self.search)
+
+        self.stockList = self.window.findChild(QtWidgets.QListWidget, 'stockList')
+        self.stockList.itemClicked.connect(self.stock_list_item_click)
+
+        self.stockName = self.window.findChild(QtWidgets.QLabel, 'stockName')
+
+        self.tradeHistoryTable = self.window.findChild(QtWidgets.QTableView, 'tradeHistoryTable')
+
+        self.search()
+
+    def search(self):
+        """
+        Searches for symbol in mql5 and adds similar symbols to gui list
+        This function activates on text change
+        """
+        self.stockList.clear()
+        symbols = mt5i.get_symbols(self.searchField.text())
+        if symbols is not None and len(symbols) != 0:
+            self.stockList.addItems(symbols)
+
+    def stock_list_item_click(self, item):
+        """
+        Gets information for the selected stock from the list and draws its graphs
+        :param item: selected stock
+        """
+        # draw price history and prediction
+        self.stockName.setText(str(item.text()))
+        data = mt5i.get_symbol_data(item.text())
+        self.topGraph.axes.cla()
+        self.topGraph.axes.plot(data['time'], data['close'])
+        self.topGraph.axes.xaxis.set_major_locator(mdates.DayLocator(interval=15))
+        self.topGraph.axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+        self.topGraph.draw()
+
+        # draw today's last 100 exchange bid and ask graph
+        data2 = mt5i.get_symbol_current_orders(item.text())
+        if data2 is not None:
+            data2 = data2.iloc[-100:]
+            data2 = data2.drop(columns=['time_msc', 'flags', 'volume_real'])
+
+            self.bottomGraph.axes.cla()
+            self.bottomGraph.axes.plot(data2['time'], data2['bid'], label='bids')
+            self.bottomGraph.axes.plot(data2['time'], data2['ask'], color='orange', label='asks')
+            self.bottomGraph.axes.xaxis.set_major_locator(mdates.MinuteLocator(interval=15))
+            self.bottomGraph.axes.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            self.bottomGraph.axes.legend()
+            self.bottomGraph.draw()
+
+            data2['time'] = str(data2['time'])[18:26]
+            model = PandasModel(data2)
+            self.tradeHistoryTable.setModel(model)
+
+            header = self.tradeHistoryTable.horizontalHeader()
+            header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+            header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+            header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
+            header.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
+            header.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeToContents)
+
+
+if __name__ == '__main__':
+    # good old function!
+    Form, Window = uic.loadUiType('ui/gui.ui')
+    app = QtWidgets.QApplication([])
+
+    window = Window()
+    form = Form()
+    form.setupUi(window)
+    ui = UI(window)
+
+    window.setFixedSize(window.size())
+    window.show()
+    app.exec_()
+    sys.exit(app.exec_())
