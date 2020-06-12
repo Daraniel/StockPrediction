@@ -1,15 +1,11 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from models.LSTM import SelfFeedLSTM
+from models.utils import from_mofidtrader
 
 plt.style.use('fivethirtyeight')
 
-data = pd.read_csv("dataSample/Bahman.Inv..csv", index_col='<DTYYYYMMDD>', parse_dates=True, engine='python')
-data = data.drop(['<TICKER>', '<PER>', '<OPENINT>', '<VALUE>', '<FIRST>', '<LAST>'], axis=1)
-data = data.iloc[::-1]
-data = data[['<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>', '<VOL>']]
-data = data.rename_axis('timestamp')
-data = data.rename(columns={'<OPEN>': 'open', '<HIGH>': 'high', '<LOW>': 'low', '<CLOSE>': 'close', '<VOL>': 'volume'})
+data = from_mofidtrader("dataSample/Bahman.Inv..csv")
 
 print("Create model")
 lstm = SelfFeedLSTM(data)
