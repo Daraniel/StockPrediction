@@ -4,6 +4,7 @@ from tensorflow.keras import Model
 from sklearn.preprocessing import MinMaxScaler
 import pandas as pd
 import numpy as np
+from models.utils import predict_ndays
 
 
 class RawLSTM(Model):
@@ -30,7 +31,7 @@ class RawLSTM(Model):
 # TODO: cleanup
 class SelfFeedLSTM:
     def __init__(self, data_frame: pd.DataFrame, **kwargs):
-        self.model = RawLSTM()
+        self.model = RawLSTM(lstm_units=100)
         self.data_frame = data_frame
         self.__preprocess()
 
@@ -45,9 +46,9 @@ class SelfFeedLSTM:
         train_data = scaled_dataset[:self.training_data_len, :]
         self.x_train = []
         self.y_train = []
-        for i in range(60, len(train_data)):
+        for i in range(60, len(train_data)-1):
             self.x_train.append(train_data[i - 60:i, 0])
-            self.y_train.append(train_data[i, 0])
+            self.y_train.append(train_data[i+1, 0])
         self.x_train, self.y_train = np.array(self.x_train), np.array(self.y_train)
         self.x_train = np.reshape(self.x_train, (self.x_train.shape[0], self.x_train.shape[1], 1))
         self.test_data = scaled_dataset[self.training_data_len - 60:, :]
@@ -70,17 +71,18 @@ class SelfFeedLSTM:
 
     def train(self):
         self.loss_fn = tf.keras.losses.MeanSquaredError()
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3,
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2,
                                                   beta_1=0.9,
                                                   beta_2=0.999)
 
-        self.model.compile(optimizer='adam', loss='mean_squared_error')
-        self.model.fit(self.x_train, self.y_train, batch_size=1000, epochs=10)
+        self.model.compile(optimizer=self.optimizer, loss=self.loss_fn)
+        self.model.fit(self.x_train, self.y_train, epochs=50)
 
     def predict(self):
-        predictions = self.model(self.x_test)
-        predictions = self.scaler.inverse_transform(predictions)
+        # predictions = self.model(self.x_test)  # predict day by day
+        predictions = predict_ndays(self.model, self.x_test, 660).reshape(-1, 1)  # predict n next days
 
+        predictions = self.scaler.inverse_transform(predictions)
         train = self.data[:self.training_data_len]
         valid = self.data[self.training_data_len:]
         valid['predictions'] = predictions
