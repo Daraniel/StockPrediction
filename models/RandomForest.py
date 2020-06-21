@@ -4,7 +4,6 @@ import numpy as np
 import math
 
 from sklearn.ensemble import RandomForestRegressor
-
 from sklearn.preprocessing import MinMaxScaler
 
 
@@ -12,13 +11,12 @@ class RandomForest:
     def __init__(self, data_frame: pd.DataFrame, days_ahead=15):
         """
         Initializes Random Forest
-        :param data_frame: Pandas Data Frame containing sotck data
         :param days_ahead: Number of days in the future to predict
+        :param data_frame: Pandas Data Frame containing sotck data
         """
         self.days_ahead = days_ahead
         self.num_features = len(data_frame.columns)
         self.data_frame = data_frame
-
         self._preprocess()
 
         self.model = RandomForestRegressor(n_estimators=100, bootstrap=True, min_samples_split=5, min_samples_leaf=5,
@@ -31,30 +29,33 @@ class RandomForest:
         self.scaler = MinMaxScaler(feature_range=(0, 1))
         scaled_dataset = self.scaler.fit_transform(dataset)
 
-        train_data = scaled_dataset[:self.training_data_len, :]
-        self.X_train = train_data[:-self.days_ahead]
-        self.y_train = train_data[self.days_ahead:, 3]
+        # train_data = scaled_dataset[:self.training_data_len, :]
+        self.X_train = (scaled_dataset[:self.training_data_len, :])[:-self.days_ahead]
+        self.y_train = (scaled_dataset[:self.training_data_len, :])[self.days_ahead:, 3]
 
         test_data = scaled_dataset[self.training_data_len:, :]
+        self.X_val = (scaled_dataset[self.training_data_len:, :])[:-self.days_ahead]
+        self.y_val = (scaled_dataset[self.training_data_len:, :])[self.days_ahead:, 3]
 
-        self.X_val = test_data[:-self.days_ahead]
-        self.y_val = test_data[self.days_ahead:, 3]
+        dataset = None
+        scaled_dataset = None
 
     def train(self):
         self.model.fit(self.X_train, self.y_train)
 
     def predict(self):
         predictions = self.model.predict(self.X_val)
-        X_val2 = self.X_val.copy()
+        x_temp = self.X_val.copy()
 
         fft = np.fft.fft(predictions)
         fft[30:-30] = 0
         predictions = np.fft.ifft(fft)
         predictions = np.abs(predictions)
 
-        X_val2[:, 3] = predictions
+        x_temp[:, 3] = predictions
 
-        predictions = self.scaler.inverse_transform(X_val2)
+        predictions = self.scaler.inverse_transform(x_temp)
+        x_temp = None
 
         train = self.data_frame[:self.training_data_len]
         valid = self.data_frame[self.training_data_len + self.days_ahead:].copy(deep=True)

@@ -1,12 +1,11 @@
 import multiprocessing
 
-import matplotlib
-import pandas as pd
-from PyQt5 import uic, QtWidgets, QtCore
+from PyQt5 import uic, QtWidgets
 import sys
 
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 import matplotlib.dates as mdates
+from nibabel.tests.test_viewers import matplotlib
 
 from models.MetaTrader5Interface import MetaTrader5Interface as mt5i
 from models.UITools import MplCanvas, PandasModel, UITools
@@ -72,7 +71,6 @@ class UI:
         Gets information for the selected stock from the list and draws its graphs
         :param item: selected stock
         """
-        print("click!")
         manager = multiprocessing.Manager()
         return_dict = manager.dict()
         # draw price history and prediction
@@ -98,6 +96,7 @@ class UI:
         random_forest = RandomForest(data)
         random_forest.train()
         train, valid = random_forest.predict()
+        random_forest = None
 
         self.topGraph.axes.plot(train['close'])
         self.topGraph.axes.plot(valid[['close', 'predictions']])
@@ -107,22 +106,20 @@ class UI:
         self.topGraph.axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
         self.topGraph.draw()
 
-        print("tick!")
         # draw today's last 100 exchange bid and ask graph
-        # data2 = mt5i.get_symbol_current_orders(item.text())
-        # self.bottomGraph.axes.cla()
-        # if data2 is not None and len(data2) > 0:
         data = data.iloc[-300:]
         data = data.drop(columns=['open', 'high', 'low'])
         self.bottomGraph.axes.cla()
         self.bottomGraph.axes.plot(data.index, data['close'], label='bids')
-        #self.bottomGraph.axes.plot(data2['time'], data['ask'], color='orange', label='asks')
+        # self.bottomGraph.axes.plot(data2['time'], data['ask'], color='orange', label='asks')
         self.bottomGraph.axes.xaxis.set_major_locator(mdates.MinuteLocator(interval=15))
         self.bottomGraph.axes.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         self.bottomGraph.axes.legend()
         self.bottomGraph.draw()
 
-        data['time'] = str(data.index)[18:26]
+        data['time'] = str(data.index)[26:35]
+        data = data[['time', 'close', 'real_volume']]
+        print(data)
         model = PandasModel(data)
         self.tradeHistoryTable.setModel(model)
 
@@ -130,7 +127,7 @@ class UI:
         header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
+        data = None
 
 
 if __name__ == '__main__':
@@ -145,5 +142,8 @@ if __name__ == '__main__':
 
     window.setFixedSize(window.size())
     window.show()
+    window.actionQuit = QtWidgets.QAction("Quit")
+    window.actionQuit.triggered.connect(QtWidgets.QApplication.quit)
+
     app.exec_()
     sys.exit(app.exec_())
