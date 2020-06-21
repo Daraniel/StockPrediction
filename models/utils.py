@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 
+
 def from_mofidtrader(data_path: str) -> pd.DataFrame:
     data = pd.read_csv(data_path, index_col='<DTYYYYMMDD>', parse_dates=True, engine='python')
     data = data.drop(['<TICKER>', '<PER>', '<OPENINT>', '<VALUE>', '<FIRST>', '<LAST>'], axis=1)

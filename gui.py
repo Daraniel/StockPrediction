@@ -1,53 +1,18 @@
+import multiprocessing
+
 import matplotlib
 import pandas as pd
 from PyQt5 import uic, QtWidgets, QtCore
 import sys
 
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from matplotlib.figure import Figure
 import matplotlib.dates as mdates
 
 from models.MetaTrader5Interface import MetaTrader5Interface as mt5i
+from models.UITools import MplCanvas, PandasModel, UITools
+from models.RandomForest import RandomForest
 
 matplotlib.use('Qt5Agg')
-
-
-class MplCanvas(FigureCanvasQTAgg):
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
-        """
-        Creates a canvas used to draw matplotlib.pyplot (or plt) plots in pyqt5 gui
-        :param parent: parent gui element which houses the plot
-        :param width: plot width
-        :param height: plot height
-        :param dpi: plot resolution
-        """
-        fig = Figure(figsize=(width, height), dpi=dpi)
-        self.axes = fig.add_subplot(111)
-        super(MplCanvas, self).__init__(fig)
-
-
-class PandasModel(QtCore.QAbstractTableModel):
-    def __init__(self, data):
-        QtCore.QAbstractTableModel.__init__(self)
-        self._data = data
-
-    def rowCount(self, parent=None):
-        return self._data.shape[0]
-
-    def columnCount(self, parent=None):
-        return self._data.shape[1]
-
-    def data(self, index, role=QtCore.Qt.DisplayRole):
-        if index.isValid():
-            if role == QtCore.Qt.DisplayRole:
-                return str(self._data.iloc[index.row(), index.column()])
-        return None
-
-    def headerData(self, col, orientation, role):
-        if orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole:
-            return self._data.columns[col]
-        return None
 
 
 class UI:
@@ -107,39 +72,65 @@ class UI:
         Gets information for the selected stock from the list and draws its graphs
         :param item: selected stock
         """
+        print("click!")
+        manager = multiprocessing.Manager()
+        return_dict = manager.dict()
         # draw price history and prediction
         self.stockName.setText(str(item.text()))
-        data = mt5i.get_symbol_data(item.text())
         self.topGraph.axes.cla()
-        self.topGraph.axes.plot(data['time'], data['close'])
+        p = multiprocessing.Process(target=mt5i.get_symbol_data, args=(item.text(), return_dict))
+        p.start()
+        p.join(60)
+        if p.is_alive():
+            print("running... let's kill it...")
+            # Terminate
+            p.terminate()
+            p.join()
+
+        if 'stock_data' not in return_dict:
+            UITools.popup("Server Timeout!")
+            return
+
+        data = return_dict['stock_data']
+        data = data.set_index('time')
+        data = data.drop(['tick_volume', 'spread'], 1)
+
+        random_forest = RandomForest(data)
+        random_forest.train()
+        train, valid = random_forest.predict()
+
+        self.topGraph.axes.plot(train['close'])
+        self.topGraph.axes.plot(valid[['close', 'predictions']])
+        self.topGraph.axes.legend(['Train', 'Valid', 'Predictions'], loc='lower right')
+
         self.topGraph.axes.xaxis.set_major_locator(mdates.DayLocator(interval=15))
         self.topGraph.axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
         self.topGraph.draw()
 
+        print("tick!")
         # draw today's last 100 exchange bid and ask graph
-        data2 = mt5i.get_symbol_current_orders(item.text())
-        if data2 is not None:
-            data2 = data2.iloc[-100:]
-            data2 = data2.drop(columns=['time_msc', 'flags', 'volume_real'])
+        # data2 = mt5i.get_symbol_current_orders(item.text())
+        # self.bottomGraph.axes.cla()
+        # if data2 is not None and len(data2) > 0:
+        data = data.iloc[-300:]
+        data = data.drop(columns=['open', 'high', 'low'])
+        self.bottomGraph.axes.cla()
+        self.bottomGraph.axes.plot(data.index, data['close'], label='bids')
+        #self.bottomGraph.axes.plot(data2['time'], data['ask'], color='orange', label='asks')
+        self.bottomGraph.axes.xaxis.set_major_locator(mdates.MinuteLocator(interval=15))
+        self.bottomGraph.axes.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        self.bottomGraph.axes.legend()
+        self.bottomGraph.draw()
 
-            self.bottomGraph.axes.cla()
-            self.bottomGraph.axes.plot(data2['time'], data2['bid'], label='bids')
-            self.bottomGraph.axes.plot(data2['time'], data2['ask'], color='orange', label='asks')
-            self.bottomGraph.axes.xaxis.set_major_locator(mdates.MinuteLocator(interval=15))
-            self.bottomGraph.axes.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-            self.bottomGraph.axes.legend()
-            self.bottomGraph.draw()
+        data['time'] = str(data.index)[18:26]
+        model = PandasModel(data)
+        self.tradeHistoryTable.setModel(model)
 
-            data2['time'] = str(data2['time'])[18:26]
-            model = PandasModel(data2)
-            self.tradeHistoryTable.setModel(model)
-
-            header = self.tradeHistoryTable.horizontalHeader()
-            header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
-            header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
-            header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
-            header.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
-            header.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeToContents)
+        header = self.tradeHistoryTable.horizontalHeader()
+        header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
 
 
 if __name__ == '__main__':

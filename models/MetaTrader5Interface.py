@@ -79,9 +79,10 @@ class MetaTrader5Interface:
         return [symbol.name for symbol in result if symbol.currency_base == 'RLS']
 
     @staticmethod
-    def get_symbol_data(symbol):
+    def get_symbol_data(symbol, return_dict):
         """
         Gets price/volume history of the symbol over time
+        :param return_dict: dictionary to contain returned value
         :param symbol: symbol to check
         :return: pandas dataFrame
         """
@@ -98,6 +99,7 @@ class MetaTrader5Interface:
 
         stock_data = pd.DataFrame(rates)
         stock_data['time'] = pd.to_datetime(stock_data['time'], unit='s')
+        return_dict['stock_data'] = stock_data
         return stock_data
 
     @staticmethod
@@ -168,7 +170,7 @@ class MetaTrader5Interface:
         time_to = datetime.now()
         time_from = time_to - timedelta(weeks=100)
 
-        deals = mt5.history_deals_get(time_from, time_to, group="*,!*EUR*,!*GBP*")
+        deals = mt5.history_deals_get(time_from, time_to, group=f"*{symbol}*")
         print(deals)
         print(mt5.last_error())
 
