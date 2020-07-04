@@ -6,7 +6,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 
 
-class SelfFeedLSTM():
+class SelfFeedLSTM:
     def __init__(self, data):
         self.data = data.filter(['close'])
         dataset = np.asarray(self.data, dtype=np.float32).reshape(-1, 1)

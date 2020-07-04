@@ -12,7 +12,7 @@ class RandomForest:
         """
         Initializes Random Forest
         :param days_ahead: Number of days in the future to predict
-        :param data_frame: Pandas Data Frame containing sotck data
+        :param data_frame: Pandas Data Frame containing stock data
         """
         self.days_ahead = days_ahead
         self.num_features = len(data_frame.columns)
@@ -33,8 +33,9 @@ class RandomForest:
         self.X_train = (scaled_dataset[:self.training_data_len, :])[:-self.days_ahead]
         self.y_train = (scaled_dataset[:self.training_data_len, :])[self.days_ahead:, 3]
 
-        test_data = scaled_dataset[self.training_data_len:, :]
-        self.X_val = (scaled_dataset[self.training_data_len:, :])[:-self.days_ahead]
+        # test_data = scaled_dataset[self.training_data_len:, :]
+        self.X_val = (scaled_dataset[self.training_data_len:, :])
+        # self.X_val = (scaled_dataset[self.training_data_len:, :])[:-self.days_ahead]
         self.y_val = (scaled_dataset[self.training_data_len:, :])[self.days_ahead:, 3]
 
         dataset = None
@@ -47,10 +48,10 @@ class RandomForest:
         predictions = self.model.predict(self.X_val)
         x_temp = self.X_val.copy()
 
-        fft = np.fft.fft(predictions)
-        fft[30:-30] = 0
-        predictions = np.fft.ifft(fft)
-        predictions = np.abs(predictions)
+        # fft = np.fft.fft(predictions)
+        # fft[30:-30] = 0
+        # predictions = np.fft.ifft(fft)
+        # predictions = np.abs(predictions)
 
         x_temp[:, 3] = predictions
 
@@ -59,9 +60,13 @@ class RandomForest:
 
         train = self.data_frame[:self.training_data_len]
         valid = self.data_frame[self.training_data_len + self.days_ahead:].copy(deep=True)
-        valid['predictions'] = predictions[:, 3]
+        last_date = valid.iloc[[-1]].index[0]  # + timedelta(days=15)
+        i = pd.date_range(last_date, periods=self.days_ahead, freq='1D')
+        future = pd.DataFrame({'predictions': predictions[-self.days_ahead:, 3]}, index=i)
+        valid.append(pd.DataFrame(index=[last_date]))
+        valid['predictions'] = predictions[:-self.days_ahead, 3]
 
-        return train, valid
+        return train, valid, future
 
     def eval(self):
         return self._print_score()

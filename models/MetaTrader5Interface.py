@@ -64,11 +64,16 @@ def _evaluate_symbol(symbol):
 class MetaTrader5Interface:
 
     @staticmethod
-    def get_symbols(keyword):
+    def get_symbols(keyword, currency_base=None):
         """
         Gets list of symbols that contain the keyword
-        :param keyword: keyword to search with
-        :return: list of symbols that contain the keyword or None if found nothing
+
+        Args:
+            keyword: keyword to search with
+            currency_base: currency that we wan't its info
+
+        Returns:
+             list of symbols that contain the keyword or None if found nothing
         """
         if not mt5.initialize():
             UITools.popup(f"initialize() failed, error code = {mt5.last_error()}")
@@ -76,7 +81,10 @@ class MetaTrader5Interface:
 
         result = mt5.symbols_get(f"*{keyword}*")
         mt5.shutdown()
-        return [symbol.name for symbol in result if symbol.currency_base == 'RLS']
+        if currency_base is None:
+            return [symbol.name for symbol in result]
+        else:
+            return [symbol.name for symbol in result if symbol.currency_base == currency_base]
 
     @staticmethod
     def get_symbol_data(symbol, return_dict):
@@ -94,7 +102,7 @@ class MetaTrader5Interface:
             UITools.popup(f"{symbol} is not valid! please check if its tradable")
             return
 
-        rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M1, 0, 5000)
+        rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_D1, 0, 1000)
         mt5.shutdown()
 
         stock_data = pd.DataFrame(rates)
@@ -171,6 +179,7 @@ class MetaTrader5Interface:
         time_from = time_to - timedelta(weeks=100)
 
         deals = mt5.history_deals_get(time_from, time_to, group=f"*{symbol}*")
+
         print(deals)
         print(mt5.last_error())
 
