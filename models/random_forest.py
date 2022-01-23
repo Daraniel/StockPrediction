@@ -1,10 +1,12 @@
 # import packages
-import pandas as pd
-import numpy as np
 import math
 
+import numpy as np
+import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import MinMaxScaler
+
+from tools.data_tools import prepare_validation_data
 
 
 class RandomForest:
@@ -48,10 +50,10 @@ class RandomForest:
         predictions = self.model.predict(self.X_val)
         x_temp = self.X_val.copy()
 
-        # fft = np.fft.fft(predictions)
-        # fft[30:-30] = 0
-        # predictions = np.fft.ifft(fft)
-        # predictions = np.abs(predictions)
+        fft = np.fft.fft(predictions)
+        fft[30:-30] = 0
+        predictions = np.fft.ifft(fft)
+        predictions = np.abs(predictions)
 
         x_temp[:, 3] = predictions
 
@@ -60,10 +62,8 @@ class RandomForest:
 
         train = self.data_frame[:self.training_data_len]
         valid = self.data_frame[self.training_data_len + self.days_ahead:].copy(deep=True)
-        last_date = valid.iloc[[-1]].index[0]  # + timedelta(days=15)
-        i = pd.date_range(last_date, periods=self.days_ahead, freq='1D')
-        future = pd.DataFrame({'predictions': predictions[-self.days_ahead:, 3]}, index=i)
-        valid.append(pd.DataFrame(index=[last_date]))
+        future = prepare_validation_data(self.days_ahead, predictions, valid)
+
         valid['predictions'] = predictions[:-self.days_ahead, 3]
 
         return train, valid, future

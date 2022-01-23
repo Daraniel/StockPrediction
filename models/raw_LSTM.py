@@ -1,13 +1,14 @@
+from abc import ABC
+
+import numpy as np
+import pandas as pd
 import tensorflow as tf
 import tensorflow.keras.layers as layers
-from tensorflow.keras import Model
 from sklearn.preprocessing import MinMaxScaler
-import pandas as pd
-import numpy as np
-from models.utils import predict_ndays
+from tensorflow.keras import Model
 
 
-class RawLSTM(Model):
+class RawLSTM(Model, ABC):
     def __init__(self, lstm_units=50, sequence_len=60):
         super(RawLSTM, self).__init__()
         self.LSTM_UNITS = lstm_units
@@ -27,8 +28,6 @@ class RawLSTM(Model):
         return self.dense(x)
 
 
-# TODO: config files
-# TODO: cleanup
 class SelfFeedLSTM:
     def __init__(self, data_frame: pd.DataFrame, **kwargs):
         self.model = RawLSTM(lstm_units=100)
@@ -87,4 +86,4 @@ class SelfFeedLSTM:
         valid = self.data[self.train_len:]
         valid['predictions'] = predictions
 
-        return train, valid
+        return train, valid, valid.iloc[[0, -1]]

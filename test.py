@@ -1,10 +1,11 @@
 import matplotlib.pyplot as plt
-from models.LSTM import SelfFeedLSTM
-from models.utils import from_mofidtrader
+
+from models.raw_LSTM import SelfFeedLSTM
+from tools.data_tools import read_data_frame
 
 plt.style.use('fivethirtyeight')
 
-data = from_mofidtrader("dataSample/Bahman.Inv..csv")
+data = read_data_frame("dataSample/Bahman.Inv..csv")
 
 print("Create model")
 lstm = SelfFeedLSTM(data)

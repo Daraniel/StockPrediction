@@ -1,7 +1,7 @@
+from PyQt5 import QtCore
 from PyQt5.QtWidgets import QMessageBox
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from PyQt5 import QtCore
 
 
 class UITools:

@@ -1,10 +1,10 @@
+from datetime import datetime, timedelta
+
 import MetaTrader5 as mt5
 import pandas as pd
 
-from datetime import datetime, timedelta
-
-from models.UITools import UITools
-from models.CustomError import CustomError
+from tools.custom_error import CustomError
+from tools.UI_tools import UITools
 
 
 def _request(symbol, order_type, volume=0.1, price=None, deviation=20):

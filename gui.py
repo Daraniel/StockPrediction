@@ -1,19 +1,21 @@
+import copy
 import multiprocessing
+import sys
 from datetime import datetime, timedelta
 
-from PyQt5 import uic, QtWidgets
-import sys
-
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+import matplotlib
 import matplotlib.dates as mdates
-from nibabel.tests.test_viewers import matplotlib
-
-from models.MetaTrader5Interface import MetaTrader5Interface as mt5i
-from models.UITools import MplCanvas, PandasModel, UITools
-from models.RandomForest import RandomForest
-from models.LstmMany2Many import LstmMany2Many
-
 import pandas_datareader.data as web
+from PyQt5 import uic, QtWidgets
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+
+from models.raw_LSTM import SelfFeedLSTM
+from models.LSTM_many_2_many import LstmMany2Many
+from models.random_forest import RandomForest
+from tools.data_tools import read_data_frame
+from tools.meta_trader5_interface import MetaTrader5Interface as mt5i
+from tools.UI_tools import MplCanvas, UITools
+from tse import tse
 
 matplotlib.use('Qt5Agg')
 
@@ -63,19 +65,25 @@ class UI:
         # self.tradeHistoryTable = self.window.findChild(QtWidgets.QTableView, 'tradeHistoryTable')
 
         self.algorithmComboBox = self.window.findChild(QtWidgets.QComboBox, 'algorithmComboBox')
-        self.algorithmComboBox.addItems(['Random Forest', 'LSTM Many2Many'])
+        self.algorithmComboBox.addItems(['Random Forest', 'LSTM Many2Many', 'LSTM'])
         self.algorithmComboBox.currentTextChanged.connect(self.set_stock_date)
 
         self.stockNameLineEdit = self.window.findChild(QtWidgets.QLineEdit, 'stockNameLineEdit')
 
         self.searchStockButton = self.window.findChild(QtWidgets.QPushButton, 'searchStockButton')
-        self.searchStockButton.clicked.connect(self.search_stock_sutton_clicked)
+        self.searchStockButton.clicked.connect(self.search_stock_button_clicked)
 
         self.symbols = mt5i.get_symbols(self.searchField.text())
         if self.symbols is not None and len(self.symbols) != 0:
+            self.stockPairs = copy.deepcopy(self.symbols)
             self.stockList.addItems(self.symbols)
 
-    def search_stock_sutton_clicked(self):
+        # ls = [x.split('\\')[1][:-4] for x in glob.glob("data/*.csv")]
+        ls = tse.parse_symbols()
+        self.stockList.addItems(ls)
+        self.symbols.extend(ls)
+
+    def search_stock_button_clicked(self):
         self.isIran = False
         self.stockName.setText(str(self.stockNameLineEdit.text()))
         self.set_stock_date()
@@ -106,24 +114,28 @@ class UI:
         self.topGraph.axes.cla()
 
         if self.isIran:
-            manager = multiprocessing.Manager()
-            return_dict = manager.dict()
-            p = multiprocessing.Process(target=mt5i.get_symbol_data, args=(self.stockName.text(), return_dict))
-            p.start()
-            p.join(120)
-            if p.is_alive():
-                print("running... let's kill it...")
-                # Terminate
-                p.terminate()
-                p.join()
+            if self.stockName.text() in self.stockPairs:
+                manager = multiprocessing.Manager()
+                return_dict = manager.dict()
+                p = multiprocessing.Process(target=mt5i.get_symbol_data, args=(self.stockName.text(), return_dict))
+                p.start()
+                p.join(120)
+                if p.is_alive():
+                    print("running... let's kill it...")
+                    # Terminate
+                    p.terminate()
+                    p.join()
 
-            if 'stock_data' not in return_dict:
-                UITools.popup("Server Timeout!")
-                return
+                if 'stock_data' not in return_dict:
+                    UITools.popup("Server Timeout!")
+                    return
 
-            data = return_dict['stock_data']
-            data = data.set_index('time')
-            data = data.drop(['tick_volume', 'spread'], 1)
+                data = return_dict['stock_data']
+                data = data.set_index('time')
+                data = data.drop(['tick_volume', 'spread'], 1)
+            else:
+                tse.get_csv(self.stockName.text())
+                data = read_data_frame(f'data/{self.stockName.text()}.csv')
 
         else:
             time_to = datetime.now()
@@ -145,14 +157,19 @@ class UI:
             model = RandomForest(data, days_ahead=int(self.daysComboBox.currentText()))
         elif self.algorithmComboBox.currentText() == 'LSTM Many2Many':
             model = LstmMany2Many(data, days_ahead=int(self.daysComboBox.currentText()))
+        elif self.algorithmComboBox.currentText() == 'LSTM':
+            model = SelfFeedLSTM(data)
         model.train()
         train, valid, predictions = model.predict()
         model = None
 
         self.topGraph.axes.plot(train['close'])
         self.topGraph.axes.plot(valid[['close', 'predictions']])
-        self.topGraph.axes.plot(predictions[['predictions']])
-        self.topGraph.axes.legend(['Train', 'Valid', 'Predictions', 'Future'], loc='upper left')
+        if self.algorithmComboBox.currentText() != 'LSTM':
+            self.topGraph.axes.plot(predictions[['predictions']])
+            self.topGraph.axes.legend(['Train', 'Valid', 'Predictions', 'Future'], loc='upper left')
+        else:
+            self.topGraph.axes.legend(['Train', 'Valid', 'Predictions'], loc='upper left')
 
         self.topGraph.axes.xaxis.set_major_locator(mdates.DayLocator(interval=10))
         self.topGraph.axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
@@ -196,4 +213,4 @@ if __name__ == '__main__':
     window.actionQuit.triggered.connect(QtWidgets.QApplication.quit)
 
     app.exec_()
-    sys.exit(app.exec_())
+    sys.exit()

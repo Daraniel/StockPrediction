@@ -1,15 +1,15 @@
 # import packages
 import numpy as np
 import pandas as pd
-from sklearn.decomposition import PCA
-
-from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras import layers
-from tensorflow.keras import metrics
-from tensorflow.keras import losses, optimizers
+from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras import callbacks
+from tensorflow.keras import layers
+from tensorflow.keras import losses, optimizers
+from tensorflow.keras import metrics
+from tensorflow.keras.models import Sequential
+
+from tools.data_tools import prepare_validation_data, add_technical_indicators, add_pca
 
 
 class LstmMany2Many:
@@ -53,14 +53,6 @@ class LstmMany2Many:
         self.x_train = np.array(self.x_train).reshape(-1, self.in_size, self.num_features)
         self.y_train = np.array(self.y_train).reshape(-1, self.out_size, self.num_features)
 
-        self.x_test = []
-        self.y_test = []
-        for i in range(self.in_size, len(self.test_data) - self.out_size):
-            self.x_test.append(self.test_data[i - self.in_size:i])
-            self.y_test.append(self.test_data[i:i + self.out_size])
-        self.x_test = np.array(self.x_test).reshape(-1, self.in_size, self.num_features)
-        self.y_test = np.array(self.y_test).reshape(-1, self.out_size, self.num_features)
-
     def train(self):
         lr = 1e-3
         loss = losses.MeanSquaredError()
@@ -88,11 +80,9 @@ class LstmMany2Many:
         x_temp = None
 
         train = self.data_frame[:self.TRAIN_LEN]
-        valid = self.data_frame[-(len(self.test_data) - self.out_size - self.in_size) + self.days_ahead:].copy(deep=True)
-        last_date = valid.iloc[[-1]].index[0]  # + timedelta(days=15)
-        i = pd.date_range(last_date, periods=self.days_ahead, freq='1D')
-        future = pd.DataFrame({'predictions': predictions[-self.days_ahead:, 3]}, index=i)
-        valid.append(pd.DataFrame(index=[last_date]))
+        valid = self.data_frame[-(len(self.test_data) - self.out_size - self.in_size) + self.days_ahead:].copy(
+            deep=True)
+        future = prepare_validation_data(self.days_ahead, predictions, valid)
 
         valid['predictions'] = predictions[-(len(self.test_data) - self.out_size - self.in_size):-self.days_ahead, 3]
 
@@ -102,49 +92,11 @@ class LstmMany2Many:
         return self._print_score()
 
     @staticmethod
-    def append_technical_indicators(df):
-        """
-        Add technical indicator to input dataframe.
-        :param data_frame: pandas data frame.
-        :return: pandas data frame.
-        """
-        data_frame = df.copy()
-        data_frame['ma7'] = data_frame['close'].rolling(window=7).mean()
-        data_frame['ma21'] = data_frame['close'].rolling(window=21).mean()
-
-        data_frame['26ema'] = data_frame['close'].ewm(span=26).mean()
-        data_frame['12ema'] = data_frame['close'].ewm(span=12).mean()
-        data_frame['MACD'] = data_frame['12ema'] - data_frame['26ema']
-
-        data_frame['20sd'] = data_frame['close'].rolling(20).std()
-        data_frame['upper_band'] = data_frame['ma21'] + 2 * data_frame['20sd']
-        data_frame['lower_band'] = data_frame['ma21'] - 2 * data_frame['20sd']
-
-        data_frame['ema'] = data_frame['close'].ewm(com=0.5).mean()
-
-        data_frame['momentum'] = data_frame['close'] - 1
+    def preprocess(data_frame, n_pca):
+        data_frame = data_frame.copy()
+        data_frame = add_technical_indicators(data_frame)
+        data_frame = data_frame.dropna()
+        data_frame.reset_index(drop=True)
+        data_frame = add_pca(data_frame, n_pca)
 
         return data_frame
-
-    @staticmethod
-    def append_pca(df, n_out):
-        """perform PCA algorithm on data."""
-        data_frame = df.copy()
-        pca = PCA(n_out)
-        components = pca.fit_transform(data_frame)
-        components_df = pd.DataFrame(
-            components,
-            columns=[f"principal component {i}" for i in range(n_out)],
-            index=data_frame.index)
-        data_frame = data_frame.join(components_df)
-
-        return data_frame
-
-    def preprocess(self, df, n_pca):
-        df = df.copy()
-        df = self.append_technical_indicators(df)
-        df = df.dropna()
-        df.reset_index(drop=True)
-        df = self.append_pca(df, n_pca)
-
-        return df
